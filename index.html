@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TimePilot</title>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="TimePilot" />
+<meta name="theme-color" content="#4f46e5" />
+<meta name="description" content="TimePilot — PDEU EE Sem 5(2) timetable, attendance & schedule tracker" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%234f46e5%22/><path d=%22M13 4 5 14h6l-1 6 8-10h-6l1-6z%22 fill=%22white%22/></svg>" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500&display=swap');
+  html, body { margin:0; padding:0; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  input[type="range"] { accent-color: #6366f1; }
+</style>
+<script>
+  function showBootError(msg) {
+    var el = document.getElementById('__error_banner');
+    if (el) {
+      el.style.display = 'block';
+      el.textContent = 'TimePilot failed to load:\n\n' + msg;
+    }
+  }
+  window.addEventListener('error', function (e) {
+    showBootError((e.message || 'Script error') + (e.filename ? ('\n(' + e.filename + ':' + e.lineno + ')') : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var reason = e.reason && e.reason.message ? e.reason.message : e.reason;
+    showBootError('Unhandled promise rejection: ' + reason);
+  });
+</script>
+<script src="https://cdn.tailwindcss.com" onerror="showBootError('Tailwind CDN script failed to load. Check your internet connection or any Safari content blocker for this site.')"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" onerror="showBootError('React CDN script failed to load. Check your internet connection or any Safari content blocker for this site.')"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" onerror="showBootError('ReactDOM CDN script failed to load. Check your internet connection or any Safari content blocker for this site.')"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="showBootError('Babel CDN script failed to load. Check your internet connection or any Safari content blocker for this site.')"></script>
+</head>
+<body>
+<div id="__error_banner" style="display:none; position:fixed; top:0; left:0; right:0; background:#fef2f2; color:#991b1b; padding:16px; font:13px/1.5 -apple-system,sans-serif; z-index:99999; border-bottom:2px solid #fecaca; white-space:pre-wrap;"></div>
+<div id="root">
+  <div style="font-family: -apple-system, sans-serif; padding: 40px 20px; color:#64748b; text-align:center;">Loading TimePilot…</div>
+</div>
+<script>
+  setTimeout(function () {
+    var root = document.getElementById('root');
+    if (root && root.textContent.indexOf('Loading TimePilot') !== -1) {
+      showBootError('The app never finished starting (stuck on "Loading" after 6 seconds).\n\nThis usually means one of the CDN scripts (React, Babel, or Tailwind) was blocked. Try: turning off any Safari content blocker for this site, switching networks, or reloading.');
+    }
+  }, 6000);
+</script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+/* ---------- Dependency-free icon set (replaces lucide-react) ---------- */
+function Icon({ children, size = 18, className = '', ...rest }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...rest}>
+      {children}
+    </svg>
+  );
+}
+const Home = (p) => <Icon {...p}><path d="M3 9l9-7 9 7" /><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" /></Icon>;
+const Calendar = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></Icon>;
+const BarChart3 = (p) => <Icon {...p}><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></Icon>;
+const SettingsIcon = (p) => <Icon {...p}><line x1="4" y1="6" x2="20" y2="6" /><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" /><line x1="4" y1="12" x2="20" y2="12" /><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" /><line x1="4" y1="18" x2="20" y2="18" /><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none" /></Icon>;
+const ChevronLeft = (p) => <Icon {...p}><path d="M15 18l-6-6 6-6" /></Icon>;
+const ChevronRight = (p) => <Icon {...p}><path d="M9 18l6-6-6-6" /></Icon>;
+const X = (p) => <Icon {...p}><path d="M18 6L6 18M6 6l12 12" /></Icon>;
+const Check = (p) => <Icon {...p}><path d="M20 6L9 17l-5-5" /></Icon>;
+const Bell = (p) => <Icon {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></Icon>;
+const BellOff = (p) => <Icon {...p}><path d="M13.7 21a2 2 0 0 1-3.4 0" /><path d="M18.6 13A17.7 17.7 0 0 1 18 8a6 6 0 0 0-9.3-5" /><path d="M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14" /><line x1="2" y1="2" x2="22" y2="22" /></Icon>;
+const Sun = (p) => <Icon {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></Icon>;
+const Moon = (p) => <Icon {...p}><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" /></Icon>;
+const CircleDot = (p) => <Icon {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" /></Icon>;
+const MapPin = (p) => <Icon {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></Icon>;
+const UserIcon = (p) => <Icon {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></Icon>;
+const FlaskConical = (p) => <Icon {...p}><path d="M9 2v6L3 20a1 1 0 0 0 1 2h16a1 1 0 0 0 1-2L15 8V2" /><path d="M8 2h8" /><path d="M7 15h10" /></Icon>;
+const AlertTriangle = (p) => <Icon {...p}><path d="M12 3 2 20h20L12 3z" /><line x1="12" y1="9" x2="12" y2="14" /><circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none" /></Icon>;
+const RotateCcw = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></Icon>;
+const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
+const Trash2 = (p) => <Icon {...p}><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></Icon>;
+const Zap = (p) => <Icon {...p}><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z" /></Icon>;
+const Download = (p) => <Icon {...p}><path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" /></Icon>;
+
+
+
+/* ============================================================
+   STATIC DATA — parsed from the uploaded PDEU EE Sem-5(2) timetable
+   ============================================================ */
+
+const PERIODS = [
+  { key: 'P1', start: '09:00', end: '09:55' },
+  { key: 'P2', start: '10:00', end: '10:55' },
+  { key: 'P3', start: '11:10', end: '12:05' },
+  { key: 'P4', start: '12:10', end: '13:05' },
+  { key: 'P5', start: '14:10', end: '15:05' },
+  { key: 'P6', start: '15:10', end: '16:05' },
+  { key: 'P7', start: '16:15', end: '17:10' },
+  { key: 'P8', start: '17:15', end: '18:10' },
+];
+
+const BREAKS = [
+  { afterKey: 'P2', start: '10:55', end: '11:10', label: 'Short Break' },
+  { afterKey: 'P4', start: '13:05', end: '14:10', label: 'Lunch Break' },
+  { afterKey: 'P6', start: '16:05', end: '16:15', label: 'Short Break' },
+];
+
+const SCHOOL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const SUBJECTS = {
+  '24EE301T': { name: 'Power System Operation & Control', type: 'lecture', color: 'indigo' },
+  '24EE301P': { name: 'Power System Simulation Lab', type: 'lab', color: 'violet' },
+  '24EE302T': { name: 'Power Electronics', type: 'lecture', color: 'sky' },
+  '24EE302P': { name: 'Power Electronics Lab', type: 'lab', color: 'violet' },
+  '24EE303T': { name: 'Instrumentation & Control', type: 'lecture', color: 'teal' },
+  '24EE303P': { name: 'Instrumentation & Control Lab', type: 'lab', color: 'violet' },
+  '24EE332T': { name: 'Energy Management & Audit', type: 'lecture', color: 'amber' },
+  '24HS301T': { name: 'Engineering Economics', type: 'lecture', color: 'cyan' },
+  'XXX': { name: 'CDC', type: 'lecture', color: 'fuchsia' },
+};
+
+const FACULTY = {
+  AJN: 'Alok Jain',
+  DIJT: 'Dinkar Jethva',
+  ECD: 'CD Cell Trainer, EED',
+  HEBH: 'Het Bhalja',
+  KS: 'Kalki Kumar Soni',
+  PJB: 'Praghnesh Bhatt',
+  PKV: 'Pankaj Verma',
+  PS: 'Preeti Sharma',
+  VIM: 'Vima Mali',
+};
+
+// e = {id, day, start, end (period keys), code, room, faculty, batch}
+const SCHEDULE = [
+  // Monday
+  { id: 'mon-p1', day: 'Monday', start: 'P1', end: 'P1', code: '24EE302T', room: 'E001', faculty: 'HEBH' },
+  { id: 'mon-p2', day: 'Monday', start: 'P2', end: 'P2', code: 'XXX', room: 'E001', faculty: 'ECD' },
+  { id: 'mon-lab-c6', day: 'Monday', start: 'P3', end: 'P4', code: '24EE303P', room: 'C206', faculty: 'PS', batch: 'C6' },
+  { id: 'mon-lab-c4', day: 'Monday', start: 'P3', end: 'P4', code: '24EE302P', room: 'E107', faculty: 'HEBH', batch: 'C4' },
+  { id: 'mon-lab-c5', day: 'Monday', start: 'P3', end: 'P4', code: '24EE301P', room: 'E111B', faculty: 'AJN', batch: 'C5' },
+  { id: 'mon-p5', day: 'Monday', start: 'P5', end: 'P5', code: '24HS301T', room: 'E001', faculty: 'KS' },
+  { id: 'mon-p6', day: 'Monday', start: 'P6', end: 'P6', code: '24EE301T', room: 'E001', faculty: 'AJN' },
+
+  // Tuesday
+  { id: 'tue-p1', day: 'Tuesday', start: 'P1', end: 'P1', code: '24EE302T', room: 'E001', faculty: 'HEBH' },
+  { id: 'tue-p2', day: 'Tuesday', start: 'P2', end: 'P2', code: '24EE301T', room: 'E001', faculty: 'AJN' },
+  { id: 'tue-p4', day: 'Tuesday', start: 'P4', end: 'P4', code: '24EE302T', room: 'E002', faculty: 'VIM' },
+  { id: 'tue-p5', day: 'Tuesday', start: 'P5', end: 'P5', code: '24HS301T', room: 'E002', faculty: 'KS' },
+
+  // Wednesday
+  { id: 'wed-p1', day: 'Wednesday', start: 'P1', end: 'P2', code: '24EE301T', room: 'E001', faculty: 'PJB' },
+  { id: 'wed-p3', day: 'Wednesday', start: 'P3', end: 'P3', code: '24EE303T', room: 'E001', faculty: 'PKV' },
+  { id: 'wed-p5', day: 'Wednesday', start: 'P5', end: 'P6', code: '24EE332T', room: 'E002', faculty: 'DIJT' },
+
+  // Thursday
+  { id: 'thu-lab-c6', day: 'Thursday', start: 'P1', end: 'P2', code: '24EE301P', room: 'E111B', faculty: 'AJN', batch: 'C6' },
+  { id: 'thu-lab-c5', day: 'Thursday', start: 'P1', end: 'P2', code: '24EE302P', room: 'E107', faculty: 'VIM', batch: 'C5' },
+  { id: 'thu-lab-c4', day: 'Thursday', start: 'P1', end: 'P2', code: '24EE303P', room: 'C206', faculty: 'PKV', batch: 'C4' },
+  { id: 'thu-p3', day: 'Thursday', start: 'P3', end: 'P3', code: 'XXX', room: 'E002', faculty: 'ECD' },
+  { id: 'thu-p4', day: 'Thursday', start: 'P4', end: 'P4', code: '24EE332T', room: 'E002', faculty: 'DIJT' },
+  { id: 'thu-p5', day: 'Thursday', start: 'P5', end: 'P5', code: '24EE303T', room: 'E002', faculty: 'PS' },
+  { id: 'thu-p6', day: 'Thursday', start: 'P6', end: 'P6', code: '24HS301T', room: 'E002', faculty: 'KS' },
+
+  // Friday
+  { id: 'fri-lab-c4', day: 'Friday', start: 'P1', end: 'P2', code: '24EE301P', room: 'E111B', faculty: 'AJN', batch: 'C4' },
+  { id: 'fri-lab-c6', day: 'Friday', start: 'P1', end: 'P2', code: '24EE302P', room: 'E107', faculty: 'HEBH', batch: 'C6' },
+  { id: 'fri-lab-c5', day: 'Friday', start: 'P1', end: 'P2', code: '24EE303P', room: 'C206', faculty: 'PKV', batch: 'C5' },
+  { id: 'fri-p4', day: 'Friday', start: 'P4', end: 'P4', code: '24EE303T', room: 'E101', faculty: 'PKV' },
+
+  // Saturday — none
+];
+
+const BATCHES = ['All', 'C4', 'C5', 'C6'];
+const ATTENDANCE_STATUSES = [
+  { key: 'present', label: 'Present', color: 'emerald' },
+  { key: 'absent', label: 'Absent', color: 'rose' },
+  { key: 'leave', label: 'Medical Leave', color: 'amber' },
+  { key: 'holiday', label: 'Holiday', color: 'slate' },
+  { key: 'cancelled', label: 'Cancelled', color: 'rose' },
+  { key: 'extra', label: 'Extra Class', color: 'emerald' },
+];
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+const periodIdx = (key) => PERIODS.findIndex((p) => p.key === key);
+const minutesOf = (hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+const entryStartMin = (e) => minutesOf(PERIODS[periodIdx(e.start)].start);
+const entryEndMin = (e) => minutesOf(PERIODS[periodIdx(e.end)].end);
+
+function formatTime(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function minsToHM(mins) {
+  mins = Math.max(0, Math.round(mins));
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function sameDate(a, b) {
+  return dateKey(a) === dateKey(b);
+}
+
+function prettyDate(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function getScheduleDayForDate(date, overrides) {
+  const key = dateKey(date);
+  const actualDay = DOW[date.getDay()];
+  const match = overrides.find((o) => key >= o.startDate && key <= o.endDate);
+  return {
+    actualDay,
+    scheduleDay: match ? match.followDay : actualDay,
+    isOverridden: !!match,
+    overrideRule: match || null,
+  };
+}
+
+function getEntriesForScheduleDay(scheduleDay, edits, batch) {
+  if (scheduleDay === 'Holiday' || !SCHOOL_DAYS.includes(scheduleDay)) return [];
+  return SCHEDULE.filter((e) => e.day === scheduleDay)
+    .filter((e) => !e.batch || batch === 'All' || e.batch === batch)
+    .map((e) => ({ ...e, ...(edits[e.id] || {}) }))
+    .sort((a, b) => periodIdx(a.start) - periodIdx(b.start));
+}
+
+function paletteClasses(color, dark) {
+  return {
+    chipBg: dark ? `bg-${color}-950` : `bg-${color}-50`,
+    text: dark ? `text-${color}-300` : `text-${color}-700`,
+    border: dark ? `border-${color}-800` : `border-${color}-200`,
+    dot: `bg-${color}-500`,
+    solid: `bg-${color}-500`,
+  };
+}
+
+function buildDayRows(entries) {
+  const rows = [];
+  let consumedUntil = -1;
+  PERIODS.forEach((p, idx) => {
+    if (idx > consumedUntil) {
+      const startHere = entries.filter((e) => periodIdx(e.start) === idx);
+      if (startHere.length) {
+        rows.push({ type: 'entries', items: startHere });
+        consumedUntil = Math.max(...startHere.map((e) => periodIdx(e.end)));
+      }
+    }
+    const br = BREAKS.find((b) => b.afterKey === p.key);
+    if (br && idx >= consumedUntil) {
+      rows.push({ type: 'break', ...br });
+    }
+  });
+  return rows;
+}
+
+function colorForEntry(entry, status) {
+  if (status === 'cancelled') return 'rose';
+  if (status === 'extra') return 'emerald';
+  return SUBJECTS[entry.code]?.color || 'slate';
+}
+
+function buildICS() {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//TimePilot//EN', 'CALSCALE:GREGORIAN'];
+  const today = new Date();
+  const fmt = (dt) =>
+    dt.getFullYear() +
+    String(dt.getMonth() + 1).padStart(2, '0') +
+    String(dt.getDate()).padStart(2, '0') +
+    'T' +
+    String(dt.getHours()).padStart(2, '0') +
+    String(dt.getMinutes()).padStart(2, '0') +
+    '00';
+
+  SCHEDULE.forEach((e) => {
+    const subj = SUBJECTS[e.code]?.name || e.code;
+    const fac = FACULTY[e.faculty] || e.faculty || '';
+    const startP = PERIODS[periodIdx(e.start)];
+    const endP = PERIODS[periodIdx(e.end)];
+    const targetDow = DOW.indexOf(e.day);
+    let d = new Date(today);
+    for (let i = 0; i < 7; i++) {
+      if (d.getDay() === targetDow) break;
+      d = addDays(d, 1);
+    }
+    const [sh, sm] = startP.start.split(':').map(Number);
+    const [eh, em] = endP.end.split(':').map(Number);
+    const dtStart = new Date(d);
+    dtStart.setHours(sh, sm, 0, 0);
+    const dtEnd = new Date(d);
+    dtEnd.setHours(eh, em, 0, 0);
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${e.id}@timepilot.local`);
+    lines.push(`DTSTART:${fmt(dtStart)}`);
+    lines.push(`DTEND:${fmt(dtEnd)}`);
+    lines.push('RRULE:FREQ=WEEKLY;COUNT=15');
+    lines.push(`SUMMARY:${subj}${e.batch ? ' (' + e.batch + ')' : ''}`);
+    lines.push(`LOCATION:${e.room}`);
+    lines.push(`DESCRIPTION:${fac}`);
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+/* ============================================================
+   STORAGE HOOK
+   ============================================================ */
+
+function useStoredState(key, initialValue) {
+  const storageKey = 'timepilot:' + key;
+  const [value, setValue] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      return raw != null ? JSON.parse(raw) : initialValue;
+    } catch (e) {
+      return initialValue;
+    }
+  });
+
+  const update = useCallback((updater) => {
+    setValue((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch (e) {
+        // storage unavailable (e.g. private browsing quota) — state still updates in memory
+      }
+      return next;
+    });
+  }, [storageKey]);
+
+  return [value, update, true];
+}
+
+/* ============================================================
+   SMALL UI PRIMITIVES
+   ============================================================ */
+
+function IconButton({ onClick, children, dark, active, className = '' }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center rounded-full transition-colors ${className} ${
+        active
+          ? dark
+            ? 'bg-indigo-500 text-white'
+            : 'bg-indigo-600 text-white'
+          : dark
+          ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Badge({ children, color = 'slate', dark }) {
+  const p = paletteClasses(color, dark);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.chipBg} ${p.text} border ${p.border}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ============================================================
+   PERIOD CARD
+   ============================================================ */
+
+function PeriodCard({ entry, dark, dateStr, status, onTap }) {
+  const subj = SUBJECTS[entry.code] || { name: entry.code, type: 'lecture' };
+  const color = colorForEntry(entry, status);
+  const p = paletteClasses(color, dark);
+  const start = PERIODS[periodIdx(entry.start)].start;
+  const end = PERIODS[periodIdx(entry.end)].end;
+
+  return (
+    <button
+      onClick={() => onTap(entry)}
+      className={`w-full text-left rounded-2xl border ${p.border} ${p.chipBg} p-3.5 flex gap-3 items-start active:scale-[0.98] transition-transform`}
+    >
+      <div className={`w-1.5 self-stretch rounded-full ${p.solid}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`text-xs font-mono ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {formatTime(start)} – {formatTime(end)}
+          </span>
+          <div className="flex items-center gap-1">
+            {subj.type === 'lab' && <FlaskConical size={13} className={p.text} />}
+            {entry.batch && <Badge color={color} dark={dark}>{entry.batch}</Badge>}
+            {status && ['cancelled', 'extra', 'present', 'absent', 'leave', 'holiday'].includes(status) && (
+              <Badge color={color} dark={dark}>
+                {ATTENDANCE_STATUSES.find((s) => s.key === status)?.label}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className={`mt-1 font-semibold leading-snug ${dark ? 'text-slate-100' : 'text-slate-900'}`}>
+          {subj.name}
+        </div>
+        <div className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <span className="font-mono">{entry.code}</span>
+          <span className="inline-flex items-center gap-1">
+            <UserIcon size={12} /> {FACULTY[entry.faculty] || entry.faculty}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MapPin size={12} /> {entry.room}
+          </span>
+        </div>
+        {entry.notes && (
+          <div className={`mt-1.5 text-xs italic ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{entry.notes}</div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+/* ============================================================
+   EDIT / ATTENDANCE SHEET
+   ============================================================ */
+
+function EditSheet({ entry, dateStr, edits, setEdits, attendance, setAttendance, dark, onClose }) {
+  const base = SCHEDULE.find((s) => s.id === entry.id);
+  const [code, setCode] = useState(entry.code);
+  const [faculty, setFaculty] = useState(entry.faculty);
+  const [room, setRoom] = useState(entry.room);
+  const [notes, setNotes] = useState(entry.notes || '');
+
+  const attKey = `${dateStr}_${entry.id}`;
+  const currentStatus = attendance[attKey] || null;
+
+  const save = () => {
+    setEdits((prev) => {
+      const diff = {};
+      if (code !== base.code) diff.code = code;
+      if (faculty !== base.faculty) diff.faculty = faculty;
+      if (room !== base.room) diff.room = room;
+      if (notes) diff.notes = notes;
+      const next = { ...prev };
+      if (Object.keys(diff).length) next[entry.id] = diff;
+      else delete next[entry.id];
+      return next;
+    });
+    onClose();
+  };
+
+  const resetEdit = () => {
+    setEdits((prev) => {
+      const next = { ...prev };
+      delete next[entry.id];
+      return next;
+    });
+    setCode(base.code);
+    setFaculty(base.faculty);
+    setRoom(base.room);
+    setNotes('');
+  };
+
+  const markStatus = (statusKey) => {
+    setAttendance((prev) => {
+      const next = { ...prev };
+      if (next[attKey] === statusKey) delete next[attKey];
+      else next[attKey] = statusKey;
+      return next;
+    });
+  };
+
+  const inputCls = `w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 ${
+    dark
+      ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-indigo-500 placeholder-slate-500'
+      : 'bg-white border-slate-200 text-slate-900 focus:ring-indigo-400 placeholder-slate-400'
+  }`;
+  const labelCls = `text-xs font-semibold mb-1 block ${dark ? 'text-slate-400' : 'text-slate-500'}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div
+        className={`relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-t-3xl p-5 pb-8 ${
+          dark ? 'bg-slate-900' : 'bg-white'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-bold text-lg ${dark ? 'text-slate-100' : 'text-slate-900'}`}>Class details</h3>
+          <button onClick={onClose} className={`p-1.5 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+            <X size={18} className={dark ? 'text-slate-300' : 'text-slate-600'} />
+          </button>
+        </div>
+
+        <div className={`text-xs mb-4 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+          {entry.day} · {formatTime(PERIODS[periodIdx(entry.start)].start)}–{formatTime(PERIODS[periodIdx(entry.end)].end)}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Subject</label>
+            <select className={inputCls} value={code} onChange={(e) => setCode(e.target.value)}>
+              {Object.entries(SUBJECTS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.name} ({k})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Faculty</label>
+              <select className={inputCls} value={faculty} onChange={(e) => setFaculty(e.target.value)}>
+                {Object.entries(FACULTY).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Room</label>
+              <input className={inputCls} value={room} onChange={(e) => setRoom(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea
+              className={inputCls}
+              rows={2}
+              placeholder="e.g. bring lab notebook"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <label className={labelCls}>Mark {dateStr === dateKey(new Date()) ? "today's" : 'this'} session</label>
+          <div className="grid grid-cols-3 gap-2">
+            {ATTENDANCE_STATUSES.map((s) => {
+              const p = paletteClasses(s.color, dark);
+              const isActive = currentStatus === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => markStatus(s.key)}
+                  className={`rounded-xl border px-2 py-2 text-xs font-semibold transition-colors ${
+                    isActive ? `${p.solid} text-white border-transparent` : `${p.chipBg} ${p.text} ${p.border}`
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={resetEdit}
+            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5 ${
+              dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            <RotateCcw size={14} /> Reset
+          </button>
+          <button
+            onClick={save}
+            className="flex-[2] rounded-xl py-2.5 text-sm font-semibold text-white bg-indigo-600 inline-flex items-center justify-center gap-1.5"
+          >
+            <Check size={16} /> Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   NOW / NEXT RING
+   ============================================================ */
+
+function ProgressRing({ progress, dark, size = 64, stroke = 6, color = 'indigo' }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - progress);
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className={dark ? 'stroke-slate-700' : 'stroke-slate-200'} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        className={`stroke-${color}-500 transition-all duration-1000`}
+      />
+    </svg>
+  );
+}
+
+/* ============================================================
+   HOME TAB
+   ============================================================ */
+
+function HomeTab({ now, dark, overrides, edits, attendance, batch, onOpenEntry, gotoDate, todayStats }) {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const { actualDay, scheduleDay, isOverridden } = getScheduleDayForDate(now, overrides);
+  const todaysEntries = useMemo(() => getEntriesForScheduleDay(scheduleDay, edits, batch), [scheduleDay, edits, batch]);
+  const todayKey = dateKey(now);
+
+  const isSkippable = (e) => attendance[`${todayKey}_${e.id}`] === 'cancelled';
+  const current = todaysEntries.find((e) => nowMin >= entryStartMin(e) && nowMin < entryEndMin(e) && !isSkippable(e));
+  const restToday = todaysEntries.filter((e) => entryStartMin(e) > nowMin && !isSkippable(e));
+
+  let next = restToday[0];
+  let nextDate = now;
+  if (!next) {
+    for (let d = 1; d <= 7; d++) {
+      const fd = addDays(now, d);
+      const { scheduleDay: sd } = getScheduleDayForDate(fd, overrides);
+      const ents = getEntriesForScheduleDay(sd, edits, batch).filter(
+        (e) => attendance[`${dateKey(fd)}_${e.id}`] !== 'cancelled'
+      );
+      if (ents.length) {
+        next = ents[0];
+        nextDate = fd;
+        break;
+      }
+    }
+  }
+
+  const dayStart = todaysEntries.length ? entryStartMin(todaysEntries[0]) : null;
+  const dayEnd = todaysEntries.length ? entryEndMin(todaysEntries[todaysEntries.length - 1]) : null;
+  const dayProgress = dayStart != null ? Math.min(1, Math.max(0, (nowMin - dayStart) / (dayEnd - dayStart))) : 0;
+
+  const cardBg = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100';
+  const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className={`text-sm font-medium ${textMuted}`}>{prettyDate(now)}</div>
+        <div className={`text-3xl font-bold tracking-tight ${dark ? 'text-slate-50' : 'text-slate-900'}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          {now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        </div>
+        {isOverridden && (
+          <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500">
+            <Zap size={12} /> Following {scheduleDay === 'Holiday' ? 'no classes (holiday)' : `${scheduleDay}'s timetable`}
+          </div>
+        )}
+      </div>
+
+      {/* Day strip */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        {SCHOOL_DAYS.map((d, i) => {
+          const isToday = actualDay === d;
+          return (
+            <button
+              key={d}
+              onClick={() => gotoDate(now)}
+              className={`flex-shrink-0 rounded-2xl px-3 py-2 text-xs font-semibold border transition-colors ${
+                isToday
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : dark
+                  ? 'bg-slate-900 text-slate-400 border-slate-800'
+                  : 'bg-white text-slate-500 border-slate-100'
+              }`}
+            >
+              {d.slice(0, 3)}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Now card */}
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className={`text-xs font-bold uppercase tracking-wide ${textMuted}`}>Right now</span>
+          {current && <ProgressRing progress={(nowMin - entryStartMin(current)) / (entryEndMin(current) - entryStartMin(current))} dark={dark} size={40} stroke={4} />}
+        </div>
+        {current ? (
+          <button onClick={() => onOpenEntry(current, todayKey)} className="w-full text-left">
+            <div className={`text-xl font-bold ${dark ? 'text-slate-50' : 'text-slate-900'}`}>{SUBJECTS[current.code]?.name}</div>
+            <div className={`mt-1 text-sm ${textMuted}`}>
+              {FACULTY[current.faculty] || current.faculty} · Room {current.room}
+              {current.batch ? ` · ${current.batch}` : ''}
+            </div>
+            <div className="mt-2 text-sm font-semibold text-indigo-500">
+              Ends in {minsToHM(entryEndMin(current) - nowMin)}
+            </div>
+          </button>
+        ) : (
+          <div className={`text-sm ${textMuted}`}>No class right now — free period.</div>
+        )}
+      </div>
+
+      {/* Next card */}
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <span className={`text-xs font-bold uppercase tracking-wide ${textMuted}`}>Up next</span>
+        {next ? (
+          <button onClick={() => onOpenEntry(next, dateKey(nextDate))} className="w-full text-left mt-2">
+            <div className={`text-lg font-bold ${dark ? 'text-slate-50' : 'text-slate-900'}`}>{SUBJECTS[next.code]?.name}</div>
+            <div className={`mt-1 text-sm ${textMuted}`}>
+              {!sameDate(nextDate, now) && `${prettyDate(nextDate)} · `}
+              {formatTime(PERIODS[periodIdx(next.start)].start)} · {FACULTY[next.faculty] || next.faculty} · Room {next.room}
+            </div>
+            {sameDate(nextDate, now) && (
+              <div className="mt-2 text-sm font-semibold text-amber-500">
+                Starts in {minsToHM(entryStartMin(next) - nowMin)}
+              </div>
+            )}
+          </button>
+        ) : (
+          <div className={`text-sm mt-2 ${textMuted}`}>Nothing scheduled — enjoy the break!</div>
+        )}
+      </div>
+
+      {/* Today progress + attendance */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className={`rounded-2xl border p-4 ${cardBg}`}>
+          <div className={`text-xs font-semibold ${textMuted}`}>Today's progress</div>
+          <div className={`mt-1 text-2xl font-bold ${dark ? 'text-slate-50' : 'text-slate-900'}`}>
+            {todaysEntries.length ? `${Math.round(dayProgress * 100)}%` : '—'}
+          </div>
+        </div>
+        <div className={`rounded-2xl border p-4 ${cardBg}`}>
+          <div className={`text-xs font-semibold ${textMuted}`}>Overall attendance</div>
+          <div className={`mt-1 text-2xl font-bold ${todayStats.pct < 75 ? 'text-rose-500' : dark ? 'text-slate-50' : 'text-slate-900'}`}>
+            {todayStats.total ? `${todayStats.pct}%` : '—'}
+          </div>
+        </div>
+      </div>
+
+      {/* Rest of today */}
+      {restToday.length > 0 && (
+        <div>
+          <div className={`text-xs font-bold uppercase tracking-wide mb-2 ${textMuted}`}>Later today</div>
+          <div className="space-y-2">
+            {restToday.map((e) => (
+              <PeriodCard key={e.id} entry={e} dark={dark} dateStr={todayKey} status={attendance[`${todayKey}_${e.id}`]} onTap={() => onOpenEntry(e, todayKey)} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   SCHEDULE TAB
+   ============================================================ */
+
+function ScheduleTab({ selectedDate, setSelectedDate, dark, overrides, edits, attendance, batch, onOpenEntry }) {
+  const { actualDay, scheduleDay, isOverridden } = getScheduleDayForDate(selectedDate, overrides);
+  const entries = useMemo(() => getEntriesForScheduleDay(scheduleDay, edits, batch), [scheduleDay, edits, batch]);
+  const dKey = dateKey(selectedDate);
+  const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <IconButton dark={dark} onClick={() => setSelectedDate(addDays(selectedDate, -1))} className="w-9 h-9">
+          <ChevronLeft size={18} />
+        </IconButton>
+        <div className="text-center">
+          <div className={`font-bold ${dark ? 'text-slate-50' : 'text-slate-900'}`}>{prettyDate(selectedDate)}</div>
+          {isOverridden && (
+            <div className="text-xs font-semibold text-amber-500 inline-flex items-center gap-1">
+              <Zap size={11} /> {scheduleDay === 'Holiday' ? 'Holiday' : `Follows ${scheduleDay}`}
+            </div>
+          )}
+        </div>
+        <IconButton dark={dark} onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="w-9 h-9">
+          <ChevronRight size={18} />
+        </IconButton>
+      </div>
+
+      {!sameDate(selectedDate, new Date()) && (
+        <button onClick={() => setSelectedDate(new Date())} className="w-full text-center text-xs font-semibold text-indigo-500">
+          Jump to today
+        </button>
+      )}
+
+      <div className="space-y-2">
+        {entries.length === 0 && (
+          <div className={`text-center py-10 text-sm ${textMuted}`}>
+            {scheduleDay === 'Holiday' ? 'No classes — holiday.' : 'No classes scheduled.'}
+          </div>
+        )}
+        {buildDayRows(entries).map((row, i) =>
+          row.type === 'break' ? (
+            <div key={`br-${i}`} className="flex items-center gap-3 py-1.5 px-1">
+              <div className={`flex-1 border-t border-dashed ${dark ? 'border-slate-700' : 'border-slate-300'}`} />
+              <span className={`text-[11px] font-semibold whitespace-nowrap ${textMuted}`}>
+                {row.label} · {formatTime(row.start)}–{formatTime(row.end)}
+              </span>
+              <div className={`flex-1 border-t border-dashed ${dark ? 'border-slate-700' : 'border-slate-300'}`} />
+            </div>
+          ) : (
+            <div key={row.items.map((e) => e.id).join('-')} className={row.items.length > 1 ? 'grid grid-cols-1 gap-2' : ''}>
+              {row.items.map((e) => (
+                <PeriodCard key={e.id} entry={e} dark={dark} dateStr={dKey} status={attendance[`${dKey}_${e.id}`]} onTap={() => onOpenEntry(e, dKey)} />
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ATTENDANCE TAB
+   ============================================================ */
+
+function AttendanceTab({ attendance, dark, goal }) {
+  const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
+  const cardBg = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100';
+
+  const stats = useMemo(() => {
+    const bySubject = {};
+    Object.entries(attendance).forEach(([key, status]) => {
+      const entryId = key.split('_').slice(1).join('_');
+      const base = SCHEDULE.find((s) => s.id === entryId);
+      if (!base) return;
+      const code = base.code;
+      if (!bySubject[code]) bySubject[code] = { present: 0, absent: 0 };
+      if (status === 'present' || status === 'extra') bySubject[code].present += 1;
+      else if (status === 'absent') bySubject[code].absent += 1;
+    });
+    const rows = Object.entries(bySubject).map(([code, v]) => {
+      const total = v.present + v.absent;
+      const pct = total ? Math.round((v.present / total) * 100) : 0;
+      return { code, name: SUBJECTS[code]?.name || code, pct, total, ...v };
+    });
+    const totalPresent = rows.reduce((a, r) => a + r.present, 0);
+    const totalAll = rows.reduce((a, r) => a + r.total, 0);
+    const overallPct = totalAll ? Math.round((totalPresent / totalAll) * 100) : 0;
+    return { rows, overallPct, totalAll };
+  }, [attendance]);
+
+  return (
+    <div className="space-y-5">
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide ${textMuted}`}>Overall attendance</div>
+        <div className={`mt-1 text-4xl font-bold ${stats.overallPct < goal ? 'text-rose-500' : dark ? 'text-slate-50' : 'text-slate-900'}`}>
+          {stats.totalAll ? `${stats.overallPct}%` : '—'}
+        </div>
+        {stats.totalAll > 0 && stats.overallPct < goal && (
+          <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500">
+            <AlertTriangle size={13} /> Below your {goal}% goal
+          </div>
+        )}
+        {stats.totalAll === 0 && <div className={`text-sm mt-1 ${textMuted}`}>Mark attendance from any class card to see stats here.</div>}
+      </div>
+
+      {stats.rows.length > 0 && (
+        <div className={`rounded-3xl border p-5 ${cardBg}`}>
+          <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>By subject</div>
+          <div className="space-y-3">
+            {stats.rows.map((r) => (
+              <div key={r.code}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{r.name}</span>
+                  <span className={`font-mono font-semibold ${r.pct < goal ? 'text-rose-500' : textMuted}`}>
+                    {r.present}/{r.total} · {r.pct}%
+                  </span>
+                </div>
+                <div className={`h-2 rounded-full overflow-hidden ${dark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${r.pct}%`, backgroundColor: r.pct < goal ? '#f43f5e' : '#6366f1' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   SETTINGS TAB
+   ============================================================ */
+
+function SettingsTab({ settings, setSettings, overrides, setOverrides, dark }) {
+  const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
+  const cardBg = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100';
+  const inputCls = `rounded-xl border px-3 py-2 text-sm outline-none ${
+    dark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+  }`;
+
+  const [newStart, setNewStart] = useState(dateKey(new Date()));
+  const [newEnd, setNewEnd] = useState(dateKey(new Date()));
+  const [newFollow, setNewFollow] = useState('Holiday');
+  const [notifStatus, setNotifStatus] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  );
+
+  const addOverride = () => {
+    setOverrides((prev) => [
+      ...prev,
+      { id: `ov-${Date.now()}`, startDate: newStart, endDate: newEnd, followDay: newFollow },
+    ]);
+  };
+
+  const requestNotifs = async () => {
+    if (typeof Notification === 'undefined') {
+      setNotifStatus('unsupported');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifStatus(perm);
+    setSettings((s) => ({ ...s, remindersEnabled: perm === 'granted' }));
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Appearance</div>
+        <div className="flex gap-2">
+          {[
+            { key: 'light', label: 'Light', icon: Sun },
+            { key: 'dark', label: 'Dark', icon: Moon },
+            { key: 'amoled', label: 'AMOLED', icon: CircleDot },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setSettings((s) => ({ ...s, theme: t.key }))}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold inline-flex flex-col items-center gap-1 border ${
+                settings.theme === t.key
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : dark
+                  ? 'bg-slate-800 text-slate-300 border-slate-700'
+                  : 'bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+            >
+              <t.icon size={16} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>My batch</div>
+        <div className="flex gap-2">
+          {BATCHES.map((b) => (
+            <button
+              key={b}
+              onClick={() => setSettings((s) => ({ ...s, batch: b }))}
+              className={`flex-1 rounded-xl py-2 text-xs font-semibold border ${
+                settings.batch === b
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : dark
+                  ? 'bg-slate-800 text-slate-300 border-slate-700'
+                  : 'bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+        <div className={`text-xs mt-2 ${textMuted}`}>Filters which lab session shows on your schedule. Lectures always show for everyone.</div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Attendance goal</div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={50}
+            max={100}
+            value={settings.goal}
+            onChange={(e) => setSettings((s) => ({ ...s, goal: Number(e.target.value) }))}
+            className="flex-1"
+          />
+          <span className={`font-mono font-bold w-12 text-right ${dark ? 'text-slate-100' : 'text-slate-900'}`}>{settings.goal}%</span>
+        </div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Class reminders</div>
+        <div className={`text-xs mb-3 ${textMuted}`}>
+          Browser notifications for upcoming classes, while this tab is open. Since this runs in a sandboxed
+          preview, permission may not be available everywhere — install/open the app in its own browser tab for
+          the most reliable delivery.
+        </div>
+        <button
+          onClick={requestNotifs}
+          className={`w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 ${
+            notifStatus === 'granted' ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'
+          }`}
+        >
+          {notifStatus === 'granted' ? <Bell size={16} /> : <BellOff size={16} />}
+          {notifStatus === 'granted' ? 'Reminders enabled' : notifStatus === 'unsupported' ? 'Not supported here' : 'Enable reminders'}
+        </button>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Day overrides & holidays</div>
+        <div className={`text-xs mb-3 ${textMuted}`}>
+          "Tomorrow follows Monday's timetable" — or mark a range as a holiday.
+        </div>
+        <div className="space-y-2 mb-3">
+          {overrides.length === 0 && <div className={`text-xs ${textMuted}`}>No overrides yet.</div>}
+          {overrides.map((o) => (
+            <div key={o.id} className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs ${dark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+              <span className={dark ? 'text-slate-300' : 'text-slate-600'}>
+                {o.startDate === o.endDate ? o.startDate : `${o.startDate} → ${o.endDate}`} · follows{' '}
+                <b>{o.followDay}</b>
+              </span>
+              <button onClick={() => setOverrides((prev) => prev.filter((x) => x.id !== o.id))}>
+                <Trash2 size={14} className="text-rose-500" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label className={`text-[11px] font-semibold ${textMuted}`}>From</label>
+            <input type="date" className={`${inputCls} w-full`} value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+          </div>
+          <div>
+            <label className={`text-[11px] font-semibold ${textMuted}`}>To</label>
+            <input type="date" className={`${inputCls} w-full`} value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <select className={`${inputCls} flex-1`} value={newFollow} onChange={(e) => setNewFollow(e.target.value)}>
+            <option value="Holiday">Holiday (no classes)</option>
+            {SCHOOL_DAYS.map((d) => (
+              <option key={d} value={d}>
+                Follow {d}
+              </option>
+            ))}
+          </select>
+          <button onClick={addOverride} className="rounded-xl px-4 bg-indigo-600 text-white">
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Export</div>
+        <button
+          onClick={() => {
+            const ics = buildICS();
+            const blob = new Blob([ics], { type: 'text/calendar' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'timepilot-schedule.ics';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }}
+          className="w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 bg-indigo-600 text-white"
+        >
+          <Download size={16} /> Export to calendar (.ics)
+        </button>
+        <div className={`text-xs mt-2 ${textMuted}`}>Imports into Google Calendar, Apple Calendar, or Outlook.</div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Faculty legend</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+          {Object.entries(FACULTY).map(([abbr, name]) => (
+            <div key={abbr} className="flex items-baseline gap-1.5">
+              <span className={`font-mono font-bold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{abbr}</span>
+              <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+        <div className={`text-xs font-bold uppercase tracking-wide mb-3 ${textMuted}`}>Subject legend</div>
+        <div className="space-y-1.5 text-xs">
+          {Object.entries(SUBJECTS).map(([code, s]) => (
+            <div key={code} className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full bg-${s.color}-500 flex-shrink-0`} />
+              <span className={`font-mono font-bold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{code}</span>
+              <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{s.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ROOT APP
+   ============================================================ */
+
+function TimePilotApp() {
+  const [now, setNow] = useState(new Date());
+  const [tab, setTab] = useState('home');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [sheetEntry, setSheetEntry] = useState(null);
+  const [sheetDate, setSheetDate] = useState(null);
+
+  const [edits, setEdits, editsLoaded] = useStoredState('timetable-edits', {});
+  const [overrides, setOverrides, overridesLoaded] = useStoredState('day-overrides', []);
+  const [attendance, setAttendance, attLoaded] = useStoredState('attendance', {});
+  const [settings, setSettings, settingsLoaded] = useStoredState('settings', {
+    theme: 'light',
+    batch: 'All',
+    goal: 75,
+    remindersEnabled: false,
+  });
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    document.title = 'TimePilot';
+    const metaDefs = [
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+      { name: 'apple-mobile-web-app-title', content: 'TimePilot' },
+      { name: 'theme-color', content: '#4f46e5' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+    ];
+    const created = [];
+    metaDefs.forEach(({ name, content }) => {
+      let tag = document.querySelector(`meta[name="${name}"]`);
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', name);
+        document.head.appendChild(tag);
+        created.push(tag);
+      }
+      tag.setAttribute('content', content);
+    });
+    return () => created.forEach((el) => el.remove());
+  }, []);
+
+  const dark = settings.theme !== 'light';
+  const rootBg = settings.theme === 'amoled' ? 'bg-black' : settings.theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50';
+
+  const overallStats = useMemo(() => {
+    let present = 0;
+    let total = 0;
+    Object.values(attendance).forEach((s) => {
+      if (s === 'present' || s === 'extra') {
+        present += 1;
+        total += 1;
+      } else if (s === 'absent') {
+        total += 1;
+      }
+    });
+    return { total, pct: total ? Math.round((present / total) * 100) : 0 };
+  }, [attendance]);
+
+  const openEntry = (entry, dStr) => {
+    setSheetEntry(entry);
+    setSheetDate(dStr);
+  };
+
+  const loaded = editsLoaded && overridesLoaded && attLoaded && settingsLoaded;
+
+  if (!loaded) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${rootBg}`}>
+        <div className="flex flex-col items-center gap-3">
+          <Zap className="animate-pulse text-indigo-500" size={28} />
+          <span className="text-sm text-slate-400">Loading TimePilot…</span>
+        </div>
+      </div>
+    );
+  }
+
+  const TABS = [
+    { key: 'home', label: 'Home', icon: Home },
+    { key: 'schedule', label: 'Schedule', icon: Calendar },
+    { key: 'attendance', label: 'Attendance', icon: BarChart3 },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
+  ];
+
+  return (
+    <div className={`min-h-screen ${rootBg}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500&display=swap');
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        input[type="range"] { accent-color: #6366f1; }
+      `}</style>
+
+      <div className="max-w-md mx-auto min-h-screen flex flex-col">
+        <header className="px-5 pt-6 pb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <Zap size={16} className="text-white" />
+            </div>
+            <span className={`font-bold text-lg tracking-tight ${dark ? 'text-slate-50' : 'text-slate-900'}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              TimePilot
+            </span>
+          </div>
+          <span className={`text-[11px] font-mono ${dark ? 'text-slate-500' : 'text-slate-400'}`}>PDEU · EE Sem 5(2)</span>
+        </header>
+
+        <main className="flex-1 px-5 pb-28 pt-2">
+          {tab === 'home' && (
+            <HomeTab
+              now={now}
+              dark={dark}
+              overrides={overrides}
+              edits={edits}
+              attendance={attendance}
+              batch={settings.batch}
+              onOpenEntry={openEntry}
+              gotoDate={(d) => {
+                setSelectedDate(d);
+                setTab('schedule');
+              }}
+              todayStats={overallStats}
+            />
+          )}
+          {tab === 'schedule' && (
+            <ScheduleTab
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              dark={dark}
+              overrides={overrides}
+              edits={edits}
+              attendance={attendance}
+              batch={settings.batch}
+              onOpenEntry={openEntry}
+            />
+          )}
+          {tab === 'attendance' && <AttendanceTab attendance={attendance} dark={dark} goal={settings.goal} />}
+          {tab === 'settings' && (
+            <SettingsTab settings={settings} setSettings={setSettings} overrides={overrides} setOverrides={setOverrides} dark={dark} />
+          )}
+        </main>
+
+        <nav
+          className={`fixed bottom-0 left-0 right-0 border-t ${
+            dark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-100'
+          } backdrop-blur`}
+        >
+          <div className="max-w-md mx-auto grid grid-cols-4 px-2 py-2">
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button key={t.key} onClick={() => setTab(t.key)} className="flex flex-col items-center gap-1 py-1.5">
+                  <t.icon size={20} className={active ? 'text-indigo-500' : dark ? 'text-slate-500' : 'text-slate-400'} />
+                  <span className={`text-[10px] font-semibold ${active ? 'text-indigo-500' : dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+
+      {sheetEntry && (
+        <EditSheet
+          entry={{ ...sheetEntry, ...(edits[sheetEntry.id] || {}) }}
+          dateStr={sheetDate}
+          edits={edits}
+          setEdits={setEdits}
+          attendance={attendance}
+          setAttendance={setAttendance}
+          dark={dark}
+          onClose={() => setSheetEntry(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<TimePilotApp />);
+</script>
+</body>
+</html>
